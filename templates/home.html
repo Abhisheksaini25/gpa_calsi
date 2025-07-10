@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>GPA Target Calculator</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0f0f, #1c1c1c);
+            color: #fff;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .container {
+            background: #2a2a2a;
+            border-radius: 20px;
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
+            padding: 40px;
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+            color: #ff4c4c;
+            font-size: 24px;
+        }
+
+        input {
+            width: 83%;
+            padding: 12px 15px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 8px;
+            background: #444;
+            color: #fff;
+            font-size: 14px;
+            outline: none;
+        }
+
+        select {
+            width: 90%;
+            padding: 12px 15px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 8px;
+            background: #444;
+            color: #fff;
+            font-size: 14px;
+            outline: none;
+        }
+
+        button {
+            width: 95%;
+            padding: 12px;
+            background: #ff4c4c;
+            border: none;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+            margin-top: 14px;
+        }
+
+        button:hover {
+            background: #e63939;
+        }
+
+        .result {
+            margin-top: 20px;
+            font-size: 16px;
+            color: #ffd700;
+            min-height: 24px;
+        }
+
+        .history {
+            margin-top: 20px;
+            background: #1c1c1c;
+            padding: 10px;
+            border-radius: 10px;
+            text-align: left;
+            max-height: 150px;
+            overflow-y: auto;
+            font-size: 14px;
+        }
+
+        .history h3 {
+            margin-top: 0;
+            color: #ff4c4c;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 20px;
+                border-radius: 15px;
+            }
+
+            h1 {
+                font-size: 20px;
+            }
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🎓 GPA Target Calculator</h1>
+
+    <input type="number" id="target_gpa" placeholder="🎯 Target GPA (0-10)" step="0.01" min="0" max="10">
+
+    <select id="total_sems">
+        <option value="" disabled selected>📚 Total Semesters</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+        <option value="5">5</option>
+        <option value="6">6</option>
+        <option value="7">7</option>
+        <option value="8">8</option>
+        <option value="9">9</option>
+        <option value="10">10</option>
+    </select>
+
+    <select id="remaining_sems">
+        <option value="" disabled selected>⏳ Current Semester</option>
+        <option value="1">1</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+        <option value="5">5</option>
+        <option value="6">6</option>
+        <option value="7">7</option>
+        <option value="8">8</option>
+        <option value="9">9</option>
+        <option value="10">10</option>
+    </select>
+
+    <input type="number" id="current_gpa" placeholder="📈 Current GPA (0-10)" step="0.01" min="0" max="10">
+
+    <button onclick="calculateGPA()">Calculate</button>
+
+    <div class="result" id="result"></div>
+
+    <div class="history" id="history">
+        <h3>📜 Calculation History</h3>
+        <ul id="historyList" style="padding-left: 15px;"></ul>
+    </div>
+</div>
+
+<script>
+function calculateGPA() {
+    const target = parseFloat(document.getElementById('target_gpa').value);
+    const total = parseInt(document.getElementById('total_sems').value);
+    const remaining = parseInt(document.getElementById('remaining_sems').value);
+    const current = parseFloat(document.getElementById('current_gpa').value);
+
+    if (isNaN(target) || isNaN(total) || isNaN(remaining) || isNaN(current)) {
+        alert("Please fill all the fields correctly.");
+        return;
+    }
+
+    if (target > 10 || current > 10) {
+        alert("In dreams 🌙");
+        return;
+    }
+
+    if (target === current) {
+        alert("Do you need calculator for that? 🤔");
+        return;
+    }
+
+    const data = new FormData();
+    data.append('target_gpa', target);
+    data.append('total_sems', total);
+    data.append('remaining_sems', remaining);
+    data.append('current_gpa', current);
+    data.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+    fetch('/calculate/', {
+        method: 'POST',
+        body: data
+    })
+    .then(response => response.json())
+    .then(result => {
+        const resultText = "Required GPA per semester: " + result.result;
+
+        if (typeof result.result === 'string' && (result.result.includes('Not possible') || result.result.includes('No semesters'))) {
+            alert(result.result);
+            document.getElementById('result').innerText = result.result;
+            return;
+        }
+
+        document.getElementById('result').innerText = resultText;
+        updateHistory(target, total, remaining, current, result.result);
+    })
+    .catch(error => {
+        document.getElementById('result').innerText = "An error occurred.";
+        console.error('Error:', error);
+    });
+}
+
+function updateHistory(target, total, remaining, current, result) {
+    const historyList = document.getElementById('historyList');
+    const newEntry = document.createElement('li');
+    newEntry.textContent = `🎯 ${target} GPA | 📚 ${total} Sems | ⏳ ${total-remaining+1} Left | 📈 ${current} Current → ➡️ ${result}`;
+    historyList.prepend(newEntry);
+}
+</script>
+
+</body>
+</html>
